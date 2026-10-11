@@ -719,8 +719,8 @@ article .math-inline{display:inline-block;max-width:100%;overflow-x:auto;vertica
 </tr>
 <tr>
 <td>精度配置</td>
-<td><code>QLinearParams</code>、预定义精度配方</td>
-<td>激活、权重、梯度及 fprop/dgrad/wgrad 精度</td>
+<td><code>RecipeSpec</code>、<code>get_qlinear_params</code>、<code>QLinearParams</code></td>
+<td>具名选择、激活/权重/梯度及 fprop/dgrad/wgrad 精度</td>
 </tr>
 <tr>
 <td>量化接口</td>
@@ -740,14 +740,14 @@ article .math-inline{display:inline-block;max-width:100%;overflow-x:auto;vertica
 </tbody></table></div>
 <p><em>表 4：miniTE 的职责划分。新增方案优先在量化策略及后端层完成，公共模块逻辑可以复用。</em></p>
 <p>TE 适配是设计中的核心要求。miniTE 沿用已有 Linear 类接口和检查点参数命名，使 Megatron 包装层能够替换相应模块，并复用其余训练流程。参数加载、额外状态（extra state）和并行模式则按具体接入路径验证，以兼顾迁移成本和行为一致性。</p>
-<p>我们尽量把依赖集中在必要的计算后端与编译扩展上，使构建和数值变化更容易定位。参考路径与优化路径共用上层模块，也使不同实现可以在相同输入和训练设置下比较。</p>
+<p>配方注册表保存名称、用途和依赖元数据，参数工厂将选中的配方转为 <code>QLinearParams</code>。注册表与查询入口只依赖 Python 标准库；计算算子在工厂的对应配方分支内导入。开发者可以先检查配置，再准备该路径需要的 CUDA、TE 和编译扩展。参考路径与优化路径继续共用上层模块。</p>
 <h3 id="section-20">4.3 多种精度配方与选择性量化</h3>
 <p>第 2 节的 W4A16、W4A8 和 W4A4 探索，要求框架能够独立配置权重和激活。miniTE 进一步将梯度精度，以及前向（fprop）、输入梯度（dgrad）、权重梯度（wgrad）的矩阵乘法设置分开。这样，一个新的前向量化方案不必同时绑定一种反向精度。</p>
-<p>预定义精度配方通过环境变量选择；按层名覆盖和保留指定层 BF16 的入口用于敏感层分析。开发流程可以从参考量化开始，先确定缩放因子与编码，再选择 GEMM 后端，最后比较全精度反向与量化反向。这些配置维度使错误来源和性能代价更容易分离。</p>
+<p>v1.0.0 通过 <code>MINITE_RECIPE</code> 或 <code>get_qlinear_params</code> 选择具名配方，例如 <code>nvfp4_per_token</code> 和 <code>nvfp4_per_token_bf16_bwd</code>。显式传入层的 <code>qlinear_params</code> 优先于环境变量选择；按层名覆盖和按层编号关闭量化的入口用于敏感层分析。开发流程可以从参考量化开始，确定缩放因子与编码，再选择 GEMM 后端，比较全精度反向与量化反向。</p>
 <p>在本文主要 MoE 性能配置中，M14 使用自研 CUTLASS NVFP4 路径，M15 接入 TE per-token 路径。两者都测量了 MXFP8 和 BF16 反向。保留 BF16 反向需要保存相应高精度操作数，但减少了反向量化和准备成本；其实际收益由完整前向与反向（F+B）计时，以及训练端测试共同评估。</p>
 <figure class="interactive-figure" id="figure-precision" data-interactive="precision"><div class="interactive-heading"><h4>前向 NVFP4，反向独立配置</h4><span class="interactive-tag">概念解释 · 可交互</span></div><div class="interactive-live" hidden></div><div class="interactive-fallback"><button class="figure-button" type="button" aria-label="查看大图：前向 NVFP4，反向独立配置"><img loading="eager" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgNDM4IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IuWJjeWQkSBOVkZQNO+8jOWPjeWQkeeLrOeri+mFjee9riI+PHN0eWxlPnRleHR7Zm9udC1mYW1pbHk6SW50ZXIsQXJpYWwsJ1BpbmdGYW5nIFNDJywnTWljcm9zb2Z0IFlhSGVpJyxzYW5zLXNlcmlmO2ZpbGw6IzM1NTEzZX0gW2RhdGEtdGlwXXtjdXJzb3I6ZGVmYXVsdH08L3N0eWxlPjxyZWN0IHdpZHRoPSI3NjAiIGhlaWdodD0iNDM4IiBmaWxsPSJ3aGl0ZSIvPjx0ZXh0IHg9IjI1IiB5PSIyOCIgZm9udC1zaXplPSIxNyIgZm9udC13ZWlnaHQ9IjYwMCI+5YmN5ZCRIE5WRlA077yM5Y+N5ZCR54us56uL6YWN572uPC90ZXh0PjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgNDQpIj48cmVjdCB3aWR0aD0iNzYwIiBoZWlnaHQ9IjMwMCIgZmlsbD0id2hpdGUiPjwvcmVjdD48dGV4dCB4PSIyNSIgeT0iMjUiIGZpbGw9IiMzNTUxM2UiIGZvbnQtc2l6ZT0iMTQiPk5WRlA0IOWJjeWQkeS4jeWPmO+8m2RncmFkIC8gd2dyYWQg55qE57K+5bqm54us56uL6YCJ5oupPC90ZXh0PjxyZWN0IHg9IjI1IiB5PSI2MiIgd2lkdGg9IjIxMCIgaGVpZ2h0PSI3MiIgcng9IjYiIGZpbGw9IiNlOWVlZjMiPjwvcmVjdD48dGV4dCB4PSIxMzAiIHk9IjkyIiBmaWxsPSIjMzU1MTNlIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7ljp/lp4sgQkYxNiBY44CBVzwvdGV4dD48dGV4dCB4PSIxMzAiIHk9IjExOCIgZmlsbD0iIzM1NTEzZSIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+5L+d5a2Y5L6b5Y+N5ZCR5L2/55SoPC90ZXh0PjxsaW5lIHgxPSIyMzUiIHkxPSI5OCIgeDI9IjI4MiIgeTI9Ijk4IiBzdHJva2U9IiM2Zjg4NzgiIHN0cm9rZS13aWR0aD0iMiI+PC9saW5lPjxyZWN0IHg9IjI4MiIgeT0iNjIiIHdpZHRoPSIyMTMiIGhlaWdodD0iNzIiIHJ4PSI2IiBmaWxsPSIjZGNlYmU3Ij48L3JlY3Q+PHRleHQgeD0iMzg4IiB5PSIxMDUiIGZpbGw9IiMzNTUxM2UiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5WRlA0IHF1YW50aXplPC90ZXh0PjxsaW5lIHgxPSI0OTUiIHkxPSI5OCIgeDI9IjU0NCIgeTI9Ijk4IiBzdHJva2U9IiM2Zjg4NzgiIHN0cm9rZS13aWR0aD0iMiI+PC9saW5lPjxyZWN0IHg9IjU0NCIgeT0iNjIiIHdpZHRoPSIxOTIiIGhlaWdodD0iNzIiIHJ4PSI2IiBmaWxsPSIjZGNlYmU3Ij48L3JlY3Q+PHRleHQgeD0iNjQwIiB5PSI5MiIgZmlsbD0iIzM1NTEzZSIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+TlZGUDQgZnByb3A8L3RleHQ+PHRleHQgeD0iNjQwIiB5PSIxMTgiIGZpbGw9IiMzNTUxM2UiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkdFTU08L3RleHQ+PHBhdGggZD0iTTEzMCAxMzQgVjIxOSBIMjgyIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMDk1NzYiIHN0cm9rZS13aWR0aD0iMiI+PC9wYXRoPjxyZWN0IHg9IjI4MiIgeT0iMTgwIiB3aWR0aD0iNDU0IiBoZWlnaHQ9Ijg4IiByeD0iNiIgZmlsbD0iI2YzZjBmNyI+PC9yZWN0Pjx0ZXh0IHg9IjUwOSIgeT0iMjE1IiBmaWxsPSIjMzU1MTNlIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5CRjE2IGRncmFkIC8gd2dyYWQ8L3RleHQ+PHRleHQgeD0iNTA5IiB5PSIyNDYiIGZpbGw9IiMzNTUxM2UiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPuS9v+eUqOS/neWtmOeahOWOn+WniyBCRjE2IOaTjeS9nOaVsDwvdGV4dD48L2c+PHRleHQgeD0iMjUiIHk9IjM2OCIgZm9udC1zaXplPSIxMSI+QkYxNiDlj43lkJHkv53nlZnpq5jnsr7luqbmk43kvZzmlbDvvIzlubblh4/lsJHlj43lkJHph4/ljJblh4blpIfjgILlrozmlbTorq3nu4Pmm7TmlrDnmoTkuLvmtYvor5XkuK3vvIzov5nkuIDot6/lvoTlj5blvpfnuqYgMS4zM+KAkzEuMzfDlyDnmoQgQkY8L3RleHQ+PHRleHQgeD0iMjUiIHk9IjM4OCIgZm9udC1zaXplPSIxMSI+MTYg6YWN5a+55Yqg6YCf44CCIMK3IOWbvuekuuWvueW6lOaKpeWRiuS4rSBNMTQvTTE1IOeahOWJjeWQkeS4juS4pOenjeWPjeWQkemAieaLqeOAgkJGMTYg5Y+N5ZCR5L2/55So5L+d5a2Y55qE5Y6f5aeLIEJGMTYg5pON5L2c5pWwPC90ZXh0Pjx0ZXh0IHg9IjI1IiB5PSI0MDgiIGZvbnQtc2l6ZT0iMTEiPu+8m+WIh+aNouWPjeWQkeeyvuW6puaXtu+8jOWJjeWQkeS7jeS4uiBOVkZQNOOAgumdmeaAgeeJiOWxleekuiBCRjE2IOWPjeWQkei3r+W+hOOAgjwvdGV4dD48L3N2Zz4=" alt="前向 NVFP4，反向独立配置"></button></div><figcaption class="interactive-caption">图示对应报告中 M14/M15 的前向与两种反向选择。BF16 反向使用保存的原始 BF16 操作数；切换反向精度时，前向仍为 NVFP4。静态版展示 BF16 反向路径。</figcaption></figure>
 
-<p>当前工程的精度配方选择器采用枚举和<code>QAT_PARAMS</code>映射。报告使用 M14/M15 等实验身份描述结果，同时记录前向、反向和量化覆盖，避免单个编号隐藏版本差异。</p>
+<p>公开入口通过同一注册表解析配方，并按常用配置、参考实现和实验配置组织说明；这些分组表示用途。<code>describe</code> 展示前向、反向和布局请求，<code>doctor</code> 检查所选路径的运行依赖。报告中的 M14/M15 继续表示原实验身份，前向、反向、量化覆盖与源码 revision 随结果保留。</p>
 <h3 id="section-21">4.4 数值监控、性能分析与训推排查</h3>
 <p>低精度故障可能到训练后期才暴露，因此 miniTE 提供可配置的数值与性能采集入口。开发者可以按模块、实例、rank 和步数检查激活、权重、输出与梯度的 min/max、均值和范数，并保存张量以复现异常。性能分析器输出 Chrome trace 和内核时间统计，帮助区分计算、数据准备和调用间隙。</p>
 <p>训推比较还要先解决数据身份问题。MoE dispatch 后两端的 token 顺序可能不同，直接逐元素相减会把排列差异误判成数值误差。我们围绕 routing、专家 FC1/FC2 及 token 对数概率设置采集和比较流程，先确认 token 和专家对应关系，再比较输出、量化数据与缩放因子。</p>
@@ -2262,63 +2262,83 @@ T_{\mathrm{convert+sync}}+T_{\mathrm{orchestration}}.
 <p>低比特训练的收益因此需要在多个层次验证：数值正确、持续有效学习、局部计算更快，以及系统连接成本可控。本文保留各层的核心数据和完整配置对照，性能结果统一采用 miniTE 测试记录。</p>
 <h2 id="section-42">7. 使用与扩展 miniTE</h2>
 <h3 id="section-43">7.1 通过线性层接口接入现有模型</h3>
-<p>miniTE 的基本接入单位是线性层。当前实现提供 <code>Linear</code>、<code>LayerNormLinear</code> 和 <code>GroupedLinear</code>，分别面向普通投影、归一化与线性层组合，以及 MoE 专家计算。Megatron 适配可通过修改相应包装类的基类完成，下面展示接口位置：</p>
-<pre><code class="language-python">from miniTransformer.module.linear import Linear
-from miniTransformer.module.layernorm_linear import LayerNormLinear
-from miniTransformer.module.group_linear import GroupedLinear
+<p>miniTE 的工程包名为 <code>miniTransformer</code>，基本接入单位是线性层。<code>Linear</code>、<code>LayerNormLinear</code> 和 <code>GroupedLinear</code> 分别面向普通投影、归一化与线性层组合，以及 MoE 专家计算。现有 Megatron 包装类可以连接相应模块，也可直接向层传入具名配方生成的参数：</p>
+<pre><code class="language-python">import torch
+from miniTransformer.module.config import get_qlinear_params
+from miniTransformer.module.linear import Linear
 
-class TELinear(Linear):
-    ...
-
-class TELayerNormColumnParallelLinear(LayerNormLinear):
-    ...
-
-class TEGroupedLinear(GroupedLinear):
-    ...
+params = get_qlinear_params(&quot;nvfp4_per_token&quot;)
+layer = Linear(
+    1024, 1024,
+    bias=False,
+    params_dtype=torch.bfloat16,
+    device=&quot;cuda&quot;,
+    qlinear_params=params,
+)
 </code></pre>
-<p>当前 <code>GroupedLinear</code> 对输出维度与分组数据布局有约束，且不支持 sequence parallelism；接入时应按具体模型和并行配置检查支持范围。</p>
-<p>为方便使用既有权重，miniTE 保留了面向 TE/Megatron 检查点的参数命名与兼容接口。当前 extra-state 接口不恢复 TE 的全部内部量化状态，因此加载参数兼容与完整内部状态兼容需要分别验证。</p>
+<p>选择配方决定数值路径，模块替换决定模型中哪些层使用 miniTE。MoE 启动脚本为对应 backend 同时设置这两项。当前 <code>GroupedLinear</code> 对输出维度与分组数据布局有约束，且不支持 sequence parallelism；接入时应检查具体模型和并行配置。</p>
+<p>miniTE 保留面向 TE/Megatron 检查点的参数命名与兼容接口。当前 extra-state 接口不恢复 TE 的全部内部量化状态，因此参数加载兼容与完整内部状态兼容需要分别验证。</p>
 <h3 id="section-44">7.2 显式选择精度配方与精度边界</h3>
-<p>预定义精度配方允许用户在同一模块接口下更换量化路径。当前源码中与本文直接相关的编号为：</p>
+<p>v1.0.0 使用描述数值行为的配方名称。用户可通过 <code>MINITE_RECIPE</code> 选择训练程序的配方，也可使用 <code>get_qlinear_params</code> 构造独立配置和算子实例：</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
-<th align="right"><code>QAT_PARAMS</code></th>
-<th>源码精度配方</th>
-<th>用途说明</th>
+<th>具名配方</th>
+<th>前向与缩放</th>
+<th>反向及用途</th>
 </tr>
 </thead>
 <tbody><tr>
-<td align="right">14</td>
-<td><code>FP4_SUB_CHANNEL_CURSOR2_CUTLASS_V2</code></td>
-<td>本文 M14 路径</td>
+<td><code>nvfp4_per_token</code></td>
+<td>NVFP4 per-token；TE 权重缩放</td>
+<td>MXFP8 反向；首次使用示例</td>
 </tr>
 <tr>
-<td align="right">15</td>
-<td><code>FP4_SUB_CHANNEL_PERTOKEN</code></td>
-<td>本文 M15 路径；反向由实验开关进一步指定</td>
+<td><code>nvfp4_per_token_bf16_bwd</code></td>
+<td>NVFP4 per-token</td>
+<td>专用 TE-style BF16 反向算子</td>
 </tr>
 <tr>
-<td align="right">16</td>
-<td><code>FP4_SUB_CHANNEL_PERTOKEN_W_PERTENSOR</code></td>
-<td>per-token 激活与 per-tensor 权重组合</td>
+<td><code>nvfp4_cursor2_cutlass_v2</code></td>
+<td>激活 per-token，权重 per-expert tensor amax；CUTLASS V2</td>
+<td>MXFP8 反向；自研 grouped 路径</td>
 </tr>
 <tr>
-<td align="right">17</td>
-<td><code>FP4_SUB_CHANNEL_PERTOKEN_BF16_BWD</code></td>
-<td>当前源码中显式的 BF16 反向变体</td>
+<td><code>nvfp4_block</code></td>
+<td>NVFP4 block scaling</td>
+<td>NVFP4 反向；块缩放配方</td>
+</tr>
+<tr>
+<td><code>nvfp4_per_token_w_per_tensor</code></td>
+<td>per-token 激活与 per-expert tensor weight amax</td>
+<td>权重缩放消融</td>
+</tr>
+<tr>
+<td><code>unquantized</code></td>
+<td>实际 dtype 由层参数决定</td>
+<td>关闭量化，用于高精度对照</td>
 </tr>
 </tbody></table></div>
-<p><em>表 9：当前工程快照中的部分配置入口。历史实验采用各自 revision 和配置，报告中的数值路径与结果不能仅由当前精度配方编号反推。</em></p>
-<p>例如，复现本文 M15 BF16 反向实验时，需显式设置：</p>
-<pre><code class="language-bash">export QAT_PARAMS=15
-export DISABLE_BACKWARD_QUANT=1
+<p><em>表 9：v1.0.0 的部分具名配置入口。性能实验仍沿用其源码 revision、前后向精度和量化覆盖；配方名称用于当前软件的选择。</em></p>
+<p>在已接入的训练程序中，可以显式选择：</p>
+<pre><code class="language-bash">MINITE_RECIPE=nvfp4_per_token python train.py
 </code></pre>
-<p>发布包还需要同时固定采样端的量化配置、所加载检查点、仅量化专家层范围以及 TE revision。将这些条件放入可执行配置，比依赖一个笼统的“FP4 模式”更便于复现和比较。</p>
+<p>这里 <code>train.py</code> 表示用户自己的训练入口。按当前命名方式表达报告中 M15 的 BF16 layer bypass 路径时，训练端的选择为：</p>
+<pre><code class="language-bash">MINITE_RECIPE=nvfp4_per_token DISABLE_BACKWARD_QUANT=1 python train.py
+</code></pre>
+<p>这一 layer bypass 与 <code>nvfp4_per_token_bf16_bwd</code> 的专用反向算子分别实现和记录。第 6 节 M14/M15 的速度结果对应原实验路径；专用算子的性能需要使用它自身的测量。重现历史实验时，还应使用原 revision 的启动配置，并固定采样端量化、检查点转换、仅量化专家层范围与 TE revision。</p>
 <h3 id="section-45">7.3 将诊断能力作为扩展过程的一部分</h3>
-<p>扩展低精度路径时，我们先检查单算子输出，再检查模块和跨端结果，最后运行完整训练。可配置钩子负责采集激活、权重、输出和梯度统计；性能工具定位内核、调用间隙和显存分配；dump/compare 脚本比较 MoE 相关中间量和 token 对数概率。</p>
-<p>这套工作方式保留参考实现与优化实现之间的联系。修改缩放粒度需要验证其数值语义；修改布局需要验证数据解释；修改 GEMM 或融合路径需要进一步检查梯度与模型行为。接口分层让这些验证可以针对具体改动展开。</p>
-<p>当前工程提供 editable install 入口，依赖匹配的 CUDA、TE 和计算后端。模块接口与运行配置应随发布版本固定；报告主学习协议和性能协议分别记录，避免用一个历史精度配方编号替代完整复现配置。</p>
+<p>配置检查从运行模型前开始。以下命令在 <code>miniTransformer</code> 仓库根目录执行：</p>
+<pre><code class="language-bash">python -m miniTransformer recipes
+python -m miniTransformer describe nvfp4_per_token
+python -m miniTransformer doctor --recipe nvfp4_per_token
+bash develop/script/moe_training_e2e.sh \
+  --backend mini_nvfp4_per_token --profile off --dry-run
+</code></pre>
+<p><code>recipes</code> 与 <code>describe</code> 无需安装 Torch 或 TE，即可查看名称、依赖和当前反向覆盖。<code>doctor</code> 检查可见 CUDA GPU、TE quantizer 参数、所选 dense/list 分组接口及算子导入。<code>--dry-run</code> 显示配方、相关环境变量和完整启动命令后退出，不启动训练或创建日志与缓存目录。正常运行将配方名称、前后向设置、布局请求和配置来源写入 <code>run_meta.json</code>。</p>
+<p>本轮配置入口的 21 项 CPU 兼容检查覆盖解析、配置冲突、无 GPU 依赖查询、启动别名、dry-run 和元数据记录，均已通过。新增的 GPU 等价测试覆盖配置实例独立性、支持路径上的 Dense/GroupedLinear 前后向，以及两种 BF16 反向选择；本轮本机尚未执行这些测试。第 6 节的数值与性能结果保留其原实验身份。</p>
+<p>扩展低精度路径时，我们先检查单算子输出，再检查模块和跨端结果，最后运行完整训练。数值钩子采集激活、权重、输出和梯度；性能工具定位内核、调用间隙和分配；dump/compare 脚本比较 MoE 中间量与 token 对数概率。新配方在注册表中说明用途与依赖，在现有参数工厂中接入算子，再沿这条流程检查数值行为和运行成本。</p>
+<p>构建、模块接入与启动示例由仓库 README 承接，双语配方手册提供完整选择与覆盖规则。模型转换、采样和评测需固定各自的版本与运行条件；当前软件入口和历史实验配置分别记录。</p>
 <h2 id="section-46">8. 经验总结与后续工作</h2>
 <h3 id="section-47">8.1 从排查过程形成的设计原则</h3>
 <p>本次 NVFP4 RL 探索说明，低精度方案需要同时检查量化格式、转换和执行方式。小模型上修正 QKV 适配可以恢复量化效果；W4Ax、KV 缓存与缩放因子实验则帮助定位跨端差异的来源。面对长程失稳，还需要结合更新方向和局部尾部理解这些差异，而不是只看平均 gap。</p>

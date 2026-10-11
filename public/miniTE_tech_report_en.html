@@ -719,8 +719,8 @@ article .math-inline{display:inline-block;max-width:100%;overflow-x:auto;vertica
 </tr>
 <tr>
 <td>Precision configuration</td>
-<td><code>QLinearParams</code>, predefined recipes</td>
-<td>Activation, weight, gradient, and fprop/dgrad/wgrad precision</td>
+<td><code>RecipeSpec</code>, <code>get_qlinear_params</code>, <code>QLinearParams</code></td>
+<td>Named selection; activation, weight, gradient, and fprop/dgrad/wgrad precision</td>
 </tr>
 <tr>
 <td>Quantization interfaces</td>
@@ -740,14 +740,14 @@ article .math-inline{display:inline-block;max-width:100%;overflow-x:auto;vertica
 </tbody></table></div>
 <p><em>Table 4. miniTE responsibilities. New numerical policies are primarily implemented in the quantization and backend layers, reusing shared module logic.</em></p>
 <p>TE integration is a core design requirement. miniTE follows existing Linear interfaces and checkpoint parameter names so Megatron wrappers can replace the corresponding modules while reusing the surrounding training workflow. Parameter loading, extra state, and parallel modes are validated for each integration path to balance migration cost and behavioral consistency.</p>
-<p>Dependencies are concentrated in the required compute backends and compiled extensions, making build and numerical changes easier to locate. Reference and optimized paths share the upper-level modules, allowing comparisons with the same inputs and training settings.</p>
+<p>The recipe registry stores names, purposes, and dependency metadata; the parameter factory converts the selection into <code>QLinearParams</code>. The registry and inspection entry points use only the Python standard library. Operator imports are deferred to the corresponding factory branches, so developers can inspect a configuration before preparing its CUDA, TE, and compiled dependencies. Reference and optimized paths continue to share the upper-level modules.</p>
 <h3 id="section-20">4.3 Precision Recipes and Selective Quantization</h3>
 <p>The W4A16, W4A8, and W4A4 experiments in Section 2 require independent configuration of weights and activations. miniTE additionally separates gradient precision and GEMM settings for forward propagation (fprop), input gradients (dgrad), and weight gradients (wgrad). A new forward quantization policy therefore need not commit to a particular backward precision.</p>
-<p>Environment variables select predefined recipes. Layer-name overrides and BF16 exclusions support sensitivity analysis. Development can begin with reference quantization: establish scales and encoding, choose a GEMM backend, then compare full-precision and quantized backward paths. These choices help separate numerical errors from execution costs.</p>
+<p>Version 1.0.0 selects named recipes through <code>MINITE_RECIPE</code> or <code>get_qlinear_params</code>, including <code>nvfp4_per_token</code> and <code>nvfp4_per_token_bf16_bwd</code>. Explicit layer <code>qlinear_params</code> take priority over environment selectors. Layer-name overrides and layer-number quantization exclusions support sensitivity analysis. Development can begin with reference quantization: establish scales and encoding, choose a GEMM backend, then compare full-precision and quantized backward paths.</p>
 <p>In the main MoE performance configurations, M14 uses our CUTLASS NVFP4 path, while M15 integrates the TE per-token path. Both are measured with MXFP8 and BF16 backward. BF16 backward saves the corresponding high-precision operands but reduces backward quantization and preparation costs. Direct forward-plus-backward (F+B) timing and complete learner tests measure the net effect.</p>
 <figure class="interactive-figure" id="figure-precision" data-interactive="precision"><div class="interactive-heading"><h4>NVFP4 Forward with Independently Configured Backward Precision</h4><span class="interactive-tag">Explanation · interactive</span></div><div class="interactive-live" hidden></div><div class="interactive-fallback"><button class="figure-button" type="button" aria-label="Enlarge: NVFP4 Forward with Independently Configured Backward Precision"><img loading="eager" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgNDU4IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9Ik5WRlA0IEZvcndhcmQgd2l0aCBJbmRlcGVuZGVudGx5IENvbmZpZ3VyZWQgQmFja3dhcmQgUHJlY2lzaW9uIj48c3R5bGU+dGV4dHtmb250LWZhbWlseTpJbnRlcixBcmlhbCwnUGluZ0ZhbmcgU0MnLCdNaWNyb3NvZnQgWWFIZWknLHNhbnMtc2VyaWY7ZmlsbDojMzU1MTNlfSBbZGF0YS10aXBde2N1cnNvcjpkZWZhdWx0fTwvc3R5bGU+PHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSI0NTgiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMjUiIHk9IjI4IiBmb250LXNpemU9IjE3IiBmb250LXdlaWdodD0iNjAwIj5OVkZQNCBGb3J3YXJkIHdpdGggSW5kZXBlbmRlbnRseSBDb25maWd1cmVkIEJhY2t3YXJkIFByZWNpc2lvbjwvdGV4dD48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwIDQ0KSI+PHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSIzMDAiIGZpbGw9IndoaXRlIj48L3JlY3Q+PHRleHQgeD0iMjUiIHk9IjI1IiBmaWxsPSIjMzU1MTNlIiBmb250LXNpemU9IjE0Ij5OVkZQNCBmb3J3YXJkIHN0YXlzIGZpeGVkOyBzZWxlY3QgZGdyYWQvd2dyYWQgcHJlY2lzaW9uIGluZGVwZW5kZW50bHk8L3RleHQ+PHJlY3QgeD0iMjUiIHk9IjYyIiB3aWR0aD0iMjEwIiBoZWlnaHQ9IjcyIiByeD0iNiIgZmlsbD0iI2U5ZWVmMyI+PC9yZWN0Pjx0ZXh0IHg9IjEzMCIgeT0iOTIiIGZpbGw9IiMzNTUxM2UiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk9yaWdpbmFsIEJGMTYgWCwgVzwvdGV4dD48dGV4dCB4PSIxMzAiIHk9IjExOCIgZmlsbD0iIzM1NTEzZSIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+U2F2ZWQgZm9yIGJhY2t3YXJkPC90ZXh0PjxsaW5lIHgxPSIyMzUiIHkxPSI5OCIgeDI9IjI4MiIgeTI9Ijk4IiBzdHJva2U9IiM2Zjg4NzgiIHN0cm9rZS13aWR0aD0iMiI+PC9saW5lPjxyZWN0IHg9IjI4MiIgeT0iNjIiIHdpZHRoPSIyMTMiIGhlaWdodD0iNzIiIHJ4PSI2IiBmaWxsPSIjZGNlYmU3Ij48L3JlY3Q+PHRleHQgeD0iMzg4IiB5PSIxMDUiIGZpbGw9IiMzNTUxM2UiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5WRlA0IHF1YW50aXplPC90ZXh0PjxsaW5lIHgxPSI0OTUiIHkxPSI5OCIgeDI9IjU0NCIgeTI9Ijk4IiBzdHJva2U9IiM2Zjg4NzgiIHN0cm9rZS13aWR0aD0iMiI+PC9saW5lPjxyZWN0IHg9IjU0NCIgeT0iNjIiIHdpZHRoPSIxOTIiIGhlaWdodD0iNzIiIHJ4PSI2IiBmaWxsPSIjZGNlYmU3Ij48L3JlY3Q+PHRleHQgeD0iNjQwIiB5PSI5MiIgZmlsbD0iIzM1NTEzZSIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+TlZGUDQgZnByb3A8L3RleHQ+PHRleHQgeD0iNjQwIiB5PSIxMTgiIGZpbGw9IiMzNTUxM2UiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkdFTU08L3RleHQ+PHBhdGggZD0iTTEzMCAxMzQgVjIxOSBIMjgyIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMDk1NzYiIHN0cm9rZS13aWR0aD0iMiI+PC9wYXRoPjxyZWN0IHg9IjI4MiIgeT0iMTgwIiB3aWR0aD0iNDU0IiBoZWlnaHQ9Ijg4IiByeD0iNiIgZmlsbD0iI2YzZjBmNyI+PC9yZWN0Pjx0ZXh0IHg9IjUwOSIgeT0iMjE1IiBmaWxsPSIjMzU1MTNlIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5CRjE2IGRncmFkIC8gd2dyYWQ8L3RleHQ+PHRleHQgeD0iNTA5IiB5PSIyNDYiIGZpbGw9IiMzNTUxM2UiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlVzZXMgc2F2ZWQgb3JpZ2luYWwgQkYxNiBvcGVyYW5kczwvdGV4dD48L2c+PHRleHQgeD0iMjUiIHk9IjM2OCIgZm9udC1zaXplPSIxMSI+QkYxNiBiYWNrd2FyZCByZXRhaW5zIGhpZ2gtcHJlY2lzaW9uIG9wZXJhbmRzIGFuZCByZWR1Y2VzIHF1YW50aXphdGlvbiBwcmVwYXJhdGlvbi4gSW4gdGhlIG1haW4gbGVhcm5lcjwvdGV4dD48dGV4dCB4PSIyNSIgeT0iMzg4IiBmb250LXNpemU9IjExIj50ZXN0LCB0aGlzIHBhdGggYWNoaWV2ZXMgYWJvdXQgMS4zM+KAkzEuMzfDlyBwYWlyZWQgc3BlZWR1cHMgb3ZlciBCRjE2LiDCtyBUaGUgZGlhZ3JhbSBzaG93cyB0aGUgZm9yd2FyZCBhbmQ8L3RleHQ+PHRleHQgeD0iMjUiIHk9IjQwOCIgZm9udC1zaXplPSIxMSI+dHdvIGJhY2t3YXJkIGNob2ljZXMgbWVhc3VyZWQgZm9yIE0xNC9NMTUuIEJGMTYgYmFja3dhcmQgdXNlcyBzYXZlZCBvcmlnaW5hbCBCRjE2IG9wZXJhbmRzOyBjaGFuZ2luZzwvdGV4dD48dGV4dCB4PSIyNSIgeT0iNDI4IiBmb250LXNpemU9IjExIj5iYWNrd2FyZCBwcmVjaXNpb24gbGVhdmVzIHRoZSBOVkZQNCBmb3J3YXJkIHBhdGggdW5jaGFuZ2VkLiBUaGUgc3RhdGljIHZlcnNpb24gc2hvd3MgQkYxNiBiYWNrd2FyZC48L3RleHQ+PC9zdmc+" alt="NVFP4 Forward with Independently Configured Backward Precision"></button></div><figcaption class="interactive-caption">The diagram shows the forward and two backward choices measured for M14/M15. BF16 backward uses saved original BF16 operands; changing backward precision leaves the NVFP4 forward path unchanged. The static version shows BF16 backward.</figcaption></figure>
 
-<p>The current recipe selector uses an enumeration and the <code>QAT_PARAMS</code> mapping. We describe results using experiment identities such as M14/M15 and record forward precision, backward precision, and quantization coverage alongside them, making revision differences explicit.</p>
+<p>Public selectors resolve recipes through one registry, grouped by common, reference, and experimental use. These groups describe purpose. <code>describe</code> reports forward/backward behavior and requested layout; <code>doctor</code> checks the selected runtime prerequisites. M14/M15 continue to identify the original experiments, with precision, quantization coverage, and source revision recorded alongside the results.</p>
 <h3 id="section-21">4.4 Numerical Monitoring, Profiling, and Alignment Diagnostics</h3>
 <p>Low-precision failures may emerge late in training. miniTE therefore provides configurable numerical and performance collection. Developers can inspect activation, weight, output, and gradient minima, maxima, means, and norms by module, instance, rank, and step, and save tensors to reproduce anomalies. The profiler produces Chrome traces and kernel timing statistics, separating computation, preparation, and gaps between calls.</p>
 <p>Training–sampling comparisons first require matching data identities. MoE dispatch can change token order on the two sides; direct elementwise subtraction would then mistake permutation differences for numerical error. We collect routing information, expert FC1/FC2 tensors, and token log probabilities, align token and expert identities, and then compare outputs, quantized data, and scales.</p>
@@ -2262,63 +2262,83 @@ T_{\mathrm{convert+sync}}+T_{\mathrm{orchestration}}.
 <p>Low-bit training benefits must therefore be validated at multiple levels: numerical correctness, sustained learning, faster local computation, and manageable integration cost. We retain core measurements and complete configuration comparisons at each level, using miniTE test records for performance results.</p>
 <h2 id="section-42">7. Using and Extending miniTE</h2>
 <h3 id="section-43">7.1 Integrating Existing Models through Linear Interfaces</h3>
-<p>The linear layer is miniTE&#39;s basic integration unit. <code>Linear</code>, <code>LayerNormLinear</code>, and <code>GroupedLinear</code> provide ordinary projections, combined normalization and linear computation, and MoE expert computation, respectively. Megatron integration can replace the base classes of the corresponding wrappers, as illustrated below:</p>
-<pre><code class="language-python">from miniTransformer.module.linear import Linear
-from miniTransformer.module.layernorm_linear import LayerNormLinear
-from miniTransformer.module.group_linear import GroupedLinear
+<p>The implementation package is <code>miniTransformer</code>, and the linear layer is miniTE&#39;s basic integration unit. <code>Linear</code>, <code>LayerNormLinear</code>, and <code>GroupedLinear</code> provide ordinary projections, combined normalization and linear computation, and MoE expert computation. Existing Megatron wrappers can connect to these modules, or users can pass parameters constructed from a named recipe directly:</p>
+<pre><code class="language-python">import torch
+from miniTransformer.module.config import get_qlinear_params
+from miniTransformer.module.linear import Linear
 
-class TELinear(Linear):
-    ...
-
-class TELayerNormColumnParallelLinear(LayerNormLinear):
-    ...
-
-class TEGroupedLinear(GroupedLinear):
-    ...
+params = get_qlinear_params(&quot;nvfp4_per_token&quot;)
+layer = Linear(
+    1024, 1024,
+    bias=False,
+    params_dtype=torch.bfloat16,
+    device=&quot;cuda&quot;,
+    qlinear_params=params,
+)
 </code></pre>
-<p>The current <code>GroupedLinear</code> imposes output-dimension and grouped-layout constraints and does not support sequence parallelism. Integration should check support for the specific model and parallel configuration.</p>
-<p>miniTE retains TE/Megatron checkpoint parameter naming and compatibility interfaces to load existing weights. The current extra-state interface does not restore all TE internal quantization state. Parameter-loading compatibility and full internal-state compatibility are validated separately.</p>
+<p>Recipe selection determines the numerical path; module integration determines which model layers use miniTE. The MoE launcher sets both for its miniTransformer backends. <code>GroupedLinear</code> imposes output-dimension and grouped-layout constraints and does not support sequence parallelism. Integration should check the specific model and parallel configuration.</p>
+<p>miniTE retains TE/Megatron checkpoint parameter naming and compatibility interfaces. The current extra-state interface does not restore all TE internal quantization state. Parameter-loading compatibility and full internal-state compatibility are validated separately.</p>
 <h3 id="section-44">7.2 Explicit Recipes and Precision Boundaries</h3>
-<p>Predefined recipes change the quantization path behind the same module interfaces. The identifiers in the current source directly relevant to this report are:</p>
+<p>Version 1.0.0 uses names describing numerical behavior. Users select a training recipe with <code>MINITE_RECIPE</code> or construct independent parameters and operators with <code>get_qlinear_params</code>:</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
-<th align="right"><code>QAT_PARAMS</code></th>
-<th>Source recipe</th>
-<th>Role</th>
+<th>Named recipe</th>
+<th>Forward and scaling</th>
+<th>Backward and use</th>
 </tr>
 </thead>
 <tbody><tr>
-<td align="right">14</td>
-<td><code>FP4_SUB_CHANNEL_CURSOR2_CUTLASS_V2</code></td>
-<td>M14 path in this report</td>
+<td><code>nvfp4_per_token</code></td>
+<td>Per-token NVFP4; TE weight scaling</td>
+<td>MXFP8 backward; first-use example</td>
 </tr>
 <tr>
-<td align="right">15</td>
-<td><code>FP4_SUB_CHANNEL_PERTOKEN</code></td>
-<td>M15 path; backward specified by experiment switch</td>
+<td><code>nvfp4_per_token_bf16_bwd</code></td>
+<td>Per-token NVFP4</td>
+<td>Dedicated TE-style BF16 backward operator</td>
 </tr>
 <tr>
-<td align="right">16</td>
-<td><code>FP4_SUB_CHANNEL_PERTOKEN_W_PERTENSOR</code></td>
-<td>Per-token activations with per-tensor weights</td>
+<td><code>nvfp4_cursor2_cutlass_v2</code></td>
+<td>Per-token activations, per-expert tensor weight amax; CUTLASS V2</td>
+<td>MXFP8 backward; custom grouped path</td>
 </tr>
 <tr>
-<td align="right">17</td>
-<td><code>FP4_SUB_CHANNEL_PERTOKEN_BF16_BWD</code></td>
-<td>Explicit BF16-backward variant in current source</td>
+<td><code>nvfp4_block</code></td>
+<td>NVFP4 block scaling</td>
+<td>NVFP4 backward; block-scaling recipe</td>
+</tr>
+<tr>
+<td><code>nvfp4_per_token_w_per_tensor</code></td>
+<td>Per-token activations, per-expert tensor weight amax</td>
+<td>Weight-scaling ablation</td>
+</tr>
+<tr>
+<td><code>unquantized</code></td>
+<td>Dtype controlled by layer parameters</td>
+<td>Quantization disabled for high-precision comparison</td>
 </tr>
 </tbody></table></div>
-<p><em>Table 9. Selected configuration entries in the current source snapshot. Historical experiments use their own revisions and settings; current recipe identifiers alone do not determine their numerical paths or results.</em></p>
-<p>For example, reproducing the M15 BF16-backward experiment requires:</p>
-<pre><code class="language-bash">export QAT_PARAMS=15
-export DISABLE_BACKWARD_QUANT=1
+<p><em>Table 9. Selected named entries in version 1.0.0. Performance experiments retain their own source revisions, forward/backward precision, and quantization coverage; names select the current software configuration.</em></p>
+<p>For an integrated training program:</p>
+<pre><code class="language-bash">MINITE_RECIPE=nvfp4_per_token python train.py
 </code></pre>
-<p>The release configuration also needs to fix the sampler&#39;s quantization settings, checkpoint, expert-only coverage, and TE revision. Recording these in executable configurations makes reproduction and comparison more reliable than a generic “FP4 mode.”</p>
+<p>Here <code>train.py</code> denotes the user&#39;s training entry point. Expressing the report&#39;s M15 BF16 layer-bypass choice through the current named interface gives:</p>
+<pre><code class="language-bash">MINITE_RECIPE=nvfp4_per_token DISABLE_BACKWARD_QUANT=1 python train.py
+</code></pre>
+<p>This layer bypass and the dedicated <code>nvfp4_per_token_bf16_bwd</code> operator are implemented and recorded separately. M14/M15 speeds in Section 6 belong to the original experimental paths. The dedicated operator requires its own performance measurements. Historical reproduction also uses the original revision&#39;s launch configuration and fixes sampler quantization, checkpoint conversion, expert-only coverage, and TE revision.</p>
 <h3 id="section-45">7.3 Diagnostics as Part of Extension Development</h3>
-<p>When extending a low-precision path, we check operator outputs, then modules and cross-framework behavior, and finally complete training. Configurable hooks collect activation, weight, output, and gradient statistics. Profiling tools locate kernel costs, gaps between calls, and memory allocation. Dump/compare scripts examine MoE intermediates and token log probabilities.</p>
-<p>This workflow keeps references and optimized implementations connected. Scale-granularity changes require numerical checks; layout changes require checking data interpretation; GEMM and fusion changes require further gradient and model checks. Layered interfaces make validation specific to each change.</p>
-<p>The source provides an editable-install entry point and requires matching CUDA, TE, and compute backends. Module interfaces and run configurations should be fixed with the release revision. Learning and performance protocols are documented separately so historical recipe identifiers are not mistaken for complete reproduction settings.</p>
+<p>Configuration checks begin before constructing a model. Run these commands from the <code>miniTransformer</code> repository root:</p>
+<pre><code class="language-bash">python -m miniTransformer recipes
+python -m miniTransformer describe nvfp4_per_token
+python -m miniTransformer doctor --recipe nvfp4_per_token
+bash develop/script/moe_training_e2e.sh \
+  --backend mini_nvfp4_per_token --profile off --dry-run
+</code></pre>
+<p><code>recipes</code> and <code>describe</code> expose names, dependencies, and backward overrides without Torch or TE. <code>doctor</code> inspects visible CUDA GPUs, TE quantizer arguments, selected dense/list grouped interfaces, and operator imports. <code>--dry-run</code> prints the recipe, relevant environment, and complete command without starting training or creating log/cache directories. Actual runs record the recipe name, forward/backward settings, layout request, and configuration source in <code>run_meta.json</code>.</p>
+<p>All 21 CPU compatibility checks for this interface update passed, covering resolution, conflicting selectors, inspection without GPU dependencies, backend aliases, dry-run, and metadata. Added GPU equivalence tests cover independent configurations, forward/backward behavior on supported Dense/GroupedLinear paths, and the two BF16 backward choices. They have not been run locally in this update. Numerical and performance results in Section 6 retain their original experiment identities.</p>
+<p>When extending a low-precision path, we check operators, then modules and cross-framework behavior, and finally complete training. Tensor hooks collect activation, weight, output, and gradient statistics. Profiling locates kernel costs, call gaps, and allocation. Dump/compare scripts examine MoE intermediates and token log probabilities. A new recipe declares its purpose and dependencies in the registry, connects its operator through the existing parameter factory, and follows these numerical and runtime checks.</p>
+<p>The repository README covers setup, layer integration, and launch examples; the bilingual recipe guides document selection and override rules. Model conversion, sampling, and evaluation require their own pinned versions and settings. Current software interfaces and historical experiment configurations are recorded separately.</p>
 <h2 id="section-46">8. Lessons and Future Work</h2>
 <h3 id="section-47">8.1 Design Principles from the Investigation</h3>
 <p>This NVFP4 RL investigation shows that low-precision deployment needs checks of format, conversion, and execution. Correcting QKV adaptation restores quantization performance in the small-model case; W4Ax, KV-cache, and scale experiments locate cross-framework differences. Long-run instability additionally requires examining update direction and local tails rather than the average gap alone.</p>
