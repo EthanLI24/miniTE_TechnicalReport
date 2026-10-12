@@ -2576,7 +2576,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
     const host = document.querySelector(`[data-interactive="${id}"]`);
     if(!host)return null;
     const live = host.querySelector('.interactive-live');
-    live.innerHTML=`<div class="interactive-controls">${controls}<button class="interactive-export" type="button">Download SVG</button></div><div class="interactive-canvas"></div><p class="interactive-scroll-hint">Scroll horizontally to view the full chart</p><div class="interactive-readout"></div><div class="interactive-result" aria-live="polite"></div>`;
+    live.innerHTML=`<div class="interactive-controls">${controls}<button type="button" data-figure-reset title="${document.documentElement.lang==='en'?'Restore this figure’s initial state':'恢复这张图的初始状态'}">${document.documentElement.lang==='en'?'Reset':'重置'}</button><button class="interactive-export" type="button">Download SVG</button></div><div class="interactive-canvas"></div><p class="interactive-scroll-hint">Scroll horizontally to view the full chart</p><div class="interactive-readout"></div><div class="interactive-result" aria-live="polite"></div>`;
     const canvas=live.querySelector('.interactive-canvas'), result=live.querySelector('.interactive-result'), readout=live.querySelector('.interactive-readout');
     const val=name=>live.querySelector(`[data-control="${name}"]`).value;
     live.querySelector('.interactive-export').addEventListener('click',()=>{
@@ -2592,7 +2592,19 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
       const blob=new Blob([source.outerHTML],{type:'image/svg+xml;charset=utf-8'});
       const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`miniTE-${id}.svg`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     });
-    return {host,live,canvas,result,readout,val,ready(){live.hidden=false;host.classList.add('is-ready')}};
+    return {host,live,canvas,result,readout,val,ready(reset){
+      // Capture resolved defaults after the first render (including trace ranges).
+      const defaults=[...live.querySelectorAll('select,input')].map(el=>({el,value:el.value,checked:el.checked}));
+      const details=[...host.querySelectorAll('details')].map(el=>el.open);
+      live.querySelector('[data-figure-reset]').addEventListener('click',()=>{
+        defaults.forEach(({el,value,checked})=>{el.value=value;if('checked' in el)el.checked=checked;});
+        reset();
+        host.querySelectorAll('details').forEach((el,i)=>el.open=details[i]??false);
+        live.querySelectorAll('.interactive-canvas,.table-wrap').forEach(el=>{el.scrollLeft=0;});
+        const tooltip=document.getElementById('graph-tip');if(tooltip)tooltip.hidden=true;
+      });
+      live.hidden=false;host.classList.add('is-ready');
+    }};
   }
   // E2M1 finite codebook; ties select the even encoded least-significant bit.
   const fp4=[0,.5,1,1.5,2,3,4,6];
@@ -2626,7 +2638,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
       const e=(code>>1)&3,m=code&1;
       w.result.textContent=e===0?`Exponent 00: mantissa 0 encodes zero, mantissa 1 encodes 0.5. Payload: ${code.toString(2).padStart(4,'0')}.`:`Exponent ${e.toString(2).padStart(2,'0')}: |q| = (1 + ${m}/2) × 2^(${e}−1) = ${magnitude}. Exponent 11 is finite in E2M1; the maximum is 6.`;
       w.readout.textContent='Outer FP32 scale is amortized per tensor/token row; excluded from the 9-byte block.';
-    };w.live.querySelectorAll('[data-bit]').forEach(b=>b.addEventListener('click',()=>{code^=1<<+b.dataset.bit;update()}));w.live.addEventListener('change',update);update();w.ready()}
+    };w.live.querySelectorAll('[data-bit]').forEach(b=>b.addEventListener('click',()=>{code^=1<<+b.dataset.bit;update()}));w.live.addEventListener('change',update);update();w.ready(()=>{code=7;update()})}
   }
   // 2. Constructed scale-context experiment, not measured model or GPU output.
   {
@@ -2641,7 +2653,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
         marks+=line(55+15.5/31*660,35,55+15.5/31*660,255,'#839a8c','stroke-dasharray="4 4"')+text(180,280,'Block 1: 16 elements')+text(515,280,'Block 2: 16 elements')+text(28,22,'Fixed target token: inputs and reconstructed values');
         w.canvas.innerHTML=svg(marks,305);w.readout.innerHTML=legend([['Fixed original inputs','#64748b'],['per-tensor',colors[1]],['per-token',colors[3]]]);
         w.result.innerHTML=`Target-token relative L2: per-tensor <strong>${n(tensor.rel*100)}%</strong>; per-token <strong>${n(token.rel*100)}%</strong>.${table(['Target token','FP32 outer scale','Two E4M3 block scales'],[['per-tensor',exp(tensor.g),tensor.blocks.join(' / ')],['per-token',exp(token.g),token.blocks.join(' / ')]])}`;
-      };w.live.addEventListener('input',update);update();w.ready()}
+      };w.live.addEventListener('input',update);update();w.ready(update)}
   }
   // 3. Local sign geometry, without a fictional reward or training simulation.
   {
@@ -2655,7 +2667,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
       w.canvas.innerHTML=svg(s,315);
       w.result.textContent=a<0&&g<0?'The learner underestimates and negative advantage lowers probability further. This meets the TRIAGE gate direction condition; attenuation also depends on segment mean gap and tail risk.':a>0&&g<0?'The learner underestimates and positive advantage raises probability, locally approaching the sampler. TRIAGE repair separately acts on negative segments in positive-advantage responses.':a===g?'This can locally amplify mismatch. TRIAGE does not attenuate every amplifying quadrant: its gate direction condition is negative advantage and negative gap.':'The learner overestimates and negative advantage lowers probability, locally approaching the sampler.';
       w.readout.textContent='Local direction analysis; no simulated cross-token coupling, optimizer, or reward.';
-    };w.live.addEventListener('change',update);update();w.ready()}
+    };w.live.addEventListener('change',update);update();w.ready(update)}
   }
   // 4. Actual report precision choices; original BF16 saved operands are explicit.
   {
@@ -2668,7 +2680,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
       s+=rect(282,180,454,88,'#f3f0f7')+text(509,215,bf?'BF16 dgrad / wgrad':'MXFP8 dgrad / wgrad','text-anchor="middle"')+text(509,246,bf?'Uses saved original BF16 operands':'Quantizes backward operands, including preparation cost','text-anchor="middle"');
       w.canvas.innerHTML=svg(s,300);w.result.textContent=bf?'BF16 backward retains high-precision operands and reduces quantization preparation. In the main learner test, this path achieves about 1.33–1.37× paired speedups over BF16.':'Lower-precision backward adds quantization, layout, and GEMM preparation costs. Compare module forward and direct F+B in Section 6.4 to inspect the net effect.';
       w.readout.textContent='Forward/backward are configured separately; saved tensors and caches depend on the recipe. These are the two M14/M15 paths measured in this report.';
-    };w.live.addEventListener('change',update);update();w.ready()}
+    };w.live.addEventListener('change',update);update();w.ready(update)}
   }
   // Measured plots share axes, colors, tooltips, accessible tables, and exports.
   const EN=document.documentElement.lang==='en';
@@ -2740,7 +2752,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
         values(w,[L('配置','Configuration'),L('统计量','Statistic'),'trial',field==='tps'?'tokens/s':'ratio',L('来源','Source')],rows);
       }
       w.result.textContent=core?L('柱为截尾均值，点为 10 次独立运行。吞吐与配对速度比各自按原始统计口径显示，计时不含采样和权重同步。','Bars show trimmed means; dots show all 10 independent runs. Throughput and paired speed ratios retain their original estimators. Sampling and weight sync are excluded.'):L('每配置一个进程、17 次更新；去掉前 2 次预热后，剩余 15 次耗时去掉最大与最小值，平均后换算吞吐。更新耗时视图显示全部 15 次已记录耗时。','One process per configuration, 17 updates. After two warmups, trim the highest and lowest of 15 update times, average, then invert for throughput. The update view shows all 15 recorded times.');
-    };w.live.addEventListener('change',update);update();w.ready()}
+    };w.live.addEventListener('change',update);update();w.ready(update)}
   }
   function moduleGroups(mod,mode,bwd,upstream){
     const keys=['te_bf16','te_nvfp4','mini_qat14','mini_qat15'];if(upstream)keys.push('te_nvfp4_pertoken');
@@ -2763,7 +2775,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
       const csv=[['backend','module','mode','seq','backward','median_ms','min_ms','max_ms','trial0_ms','trial1_ms','trial2_ms','trial3_ms','trial4_ms','source'],...groups.flatMap(g=>g.cells.map(c=>[g.label,mod,mode,c.seq,c.backward,c.median,...c.range,...c.trials,sourceName(c)]))];
       values(w,[L('配置','Configuration'),'tokens',L('中位 ms','Median ms'),'min ms','max ms',L('反向','Backward'),L('来源','Source')],rows,csv);
       w.result.textContent=L('点为五次运行的中位数，竖线为 min–max。连线仅连接四个实测规模。反向精度切换只改变 M14/M15，N4/U3045 保留各自记录的配方。','Points are medians of five trials; whiskers show min–max. Lines connect four measured sizes. The backward selector changes M14/M15; N4/U3045 retain their recorded recipes.');
-    };w.live.addEventListener('change',update);update();w.ready()}
+    };w.live.addEventListener('change',update);update();w.ready(update)}
   }
   {
     const w=setup('trend',select(L('模块','Module'),'module',[['fc1','FC1'],['fc2','FC2']])+select(L('显示','Show'),'show',[['both',L('前向与直接 F+B','Forward and direct F+B')],['forward',L('仅前向','Forward only')],['fwb',L('仅直接 F+B','Direct F+B only')]]));
@@ -2778,7 +2790,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
       const rows=groups.flatMap(g=>g.cells.map(c=>[g.label,g.mode,c.seq,exact(c.median),exact(c.range[0]),exact(c.range[1]),sourceName(c)]));
       values(w,[L('配置','Configuration'),L('计时','Timing'),'tokens',L('中位 ms','Median ms'),'min ms','max ms',L('来源','Source')],rows);
       w.result.textContent=L('实线：前向；虚线：直接 F+B。FC1/FC2 可切换，所有点均来自 C1 的五次运行汇总；未用前向与反向相加代替直接 F+B。M14/M15 使用本轮 MXFP8 反向。','Solid: forward; dashed: directly timed F+B. Switch FC1/FC2; every point comes from C1 five-trial summaries. Direct F+B is not a sum of separate forward and backward timings. M14/M15 use the recorded MXFP8 backward.');
-    };w.live.addEventListener('change',update);update();w.ready()}
+    };w.live.addEventListener('change',update);update();w.ready(update)}
   }
   {
     const w=setup('serving',select(L('推理指标','Serving metric'),'metric',[['tps',L('聚合输出吞吐','Aggregate output throughput')],['tpot',L('平均 TPOT','Mean TPOT')]]));
@@ -2789,7 +2801,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
         s+=text(left-12,y+5,c.label,'text-anchor="end"')+bar(left,y-17,width*c[f]/max,34,color(c.label),tip)+text(741,y+5,n(c[f],f==='tps'?1:2),'text-anchor="end" font-size="13"');});w.canvas.innerHTML=svg(s,223);
       values(w,[L('精度','Precision'),f==='tps'?'tokens/s':'TPOT ms',L('来源','Source')],cells.map(c=>[c.label,exact(c[f]),'Notion §6.3.1.3']));
       w.result.textContent=L('8 个推理实例、固定输出 1024 tokens、并发 64，忽略 EOS。原始实验汇总值：NVFP4/BF16 吞吐比约 1.642×；未提供独立重复值，不绘制误差范围。','8 engines, 1024 fixed output tokens, concurrency 64, ignore EOS. Original experiment aggregates: NVFP4/BF16 throughput ratio ≈1.642×. Independent repeat values are unavailable; no error range is drawn.');
-    };w.live.addEventListener('change',update);update();w.ready()}
+    };w.live.addEventListener('change',update);update();w.ready(update)}
   }
   {
     const w=setup('rl-cost',select(L('条件估算对象','Conditional estimate'),'variant',[[2,L('M15 BF16 反向','M15 BF16 backward')],[1,'TE native NVFP4']])+'<label>'+L('假设采样比 BF16 节省','Assumed rollout saving vs BF16')+'<input type="range" data-control="saving" aria-label="'+L('假设采样节省秒数','Assumed rollout saving in seconds')+'" min="0" max="60" step="0.1" value="0"><output data-saving></output></label>');
@@ -2802,7 +2814,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
       const c=data.stages[+w.val('variant')],b=data.stages[0],extra=c.train+c.sync-b.train-b.sync,saving=+w.val('saving'),net=saving-extra;
       w.live.querySelector('[data-saving]').textContent=n(saving,1)+' s';
       w.result.textContent=L(`条件估算：${c.label} 的已测两阶段比 BF16 多 ${n(extra)} s。若采样节省 ${n(saving,1)} s，则顺序流程净${net>=0?'节省':'增加'} ${n(Math.abs(net))} s。滑块只改变条件估算，不改变图中实测值。`, `Conditional estimate: ${c.label} adds ${n(extra)} s over BF16 in the two measured stages. Assuming ${n(saving,1)} s saved in rollout, the sequential flow ${net>=0?'saves':'adds'} ${n(Math.abs(net))} s. The slider changes the conditional estimate, not measured values.`);
-    };w.live.addEventListener('input',update);w.live.addEventListener('change',update);update();w.ready()}
+    };w.live.addEventListener('input',update);w.live.addEventListener('change',update);update();w.ready(update)}
   }
   // Training traces: hover selects recorded steps, never interpolated values.
   const traceColor={BF16:'#64748b','BF16 + TIS':'#64748b',NVFP4:'#d18a35','NVFP4 + TIS':'#537bb9',TRIAGE:'#309576','miniTE + TIS':'#309576','NVFP4 + aligned':'#309576'};
@@ -2905,7 +2917,7 @@ if(langLink)langLink.addEventListener('click',()=>{langLink.hash=location.hash})
       const step=+stepInput.min+(local.x-p.left)/(p.right-p.left)*(+stepInput.max-+stepInput.min);updateStep(step);
     });
     w.canvas.addEventListener('keydown',e=>{if(e.target.matches('[data-training-panel]')&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();updateStep(selectedStep+(e.key==='ArrowRight'?1:-1));const r=e.target.getBoundingClientRect();showTip(e.target,r.left+r.width/2,r.top)}});
-    render();w.ready();
+    render();w.ready(()=>{selectedStep=0;render()});
   }
   const retainedReferences=[...document.querySelectorAll('.original-reference,.method-annex')];let retainedPrintState=[];
   window.addEventListener('beforeprint',()=>{retainedPrintState=retainedReferences.map(d=>d.open);retainedReferences.forEach(d=>d.open=true)});
@@ -2985,7 +2997,7 @@ function info(id){
   'diag-codes':{title:typed('Compare codes & scales','比较编码与缩放因子'),type:typed('Diagnostic boundary','诊断边界'),about:typed('Compare the quantized operands before attributing a discrepancy to the GEMM implementation.','先比较量化操作数，再判断差异是否来自 GEMM 实现。'),data:typed('Align quantization domains, codes, block/outer scales, padding and operand orientation.','对齐量化归约域、编码、块/外层缩放、padding 与操作数方向。'),implementation:typed('Use exact comparison when the reference requires it; preserve dtype, layout and source identity. The matrix icons are schematic.','参考路径要求时进行精确比较，同时记录 dtype、布局与来源。图中的矩阵为示意图。'),source:'deterministic',related:['quantization','packed','spec']},
   'diag-experts':{title:typed('Compare expert outputs','比较专家输出'),type:typed('Diagnostic boundary','诊断边界'),about:typed('Check the learner and sampler immediately after the expert GEMMs.','在专家 GEMM 之后比较训练端与采样端的对应输出。'),data:typed('Match expert IDs and token order before comparing values or error metrics.','先匹配专家 ID 与 token 顺序，再比较数值或误差指标。'),implementation:typed('FC1 and FC2 are separate diagnostic boundaries; hook location is part of the comparison.','FC1 与 FC2 分别构成检查边界；hook 的采集位置也是比较条件。'),source:'deterministic',related:['gemm','output','fc1','fc2']},
   'diag-logp':{title:typed('Compare token log probabilities','比较 token 对数概率'),type:typed('Diagnostic boundary','诊断边界'),about:typed('Inspect the policy-level effect of the numerical choices made earlier in the path.','检查前面数值选择对策略概率产生的影响。'),data:typed('Use the same tokens, masks, weights and execution context. Preserve the distribution of the gap as well as its mean.','固定 token、mask、权重与执行上下文；除均值外，也检查 gap 的分布。'),implementation:typed('Link lower-level mismatches to the policy boundary. No measured log-probability values are simulated in this diagram.','将低层差异关联到策略边界。图中不模拟实测对数概率值。'),source:'deterministic',related:['sampler','learner','spec']},
-  strict:{title:typed('Strict reference','严格参考路径'),type:typed('Alignment reference','对齐参考'),about:typed('Match kernels and reduction behavior with the sampler to localize residual execution differences.','匹配采样端的内核与归约行为，定位残余执行差异。'),data:typed('Kernel choice, reduction order, normalization and nonlinear composition can affect the comparison.','内核选择、归约顺序、归一化与非线性组合都会影响比较。'),implementation:typed('Deterministic alignment is a coordinated execution setup described in the report. A recipe name alone does not establish alignment.','确定性对齐是报告中描述的联合执行设置，单个配方名称并不代表已经完成对齐。'),source:'deterministic',related:['diag-codes','diag-experts','diag-logp','spec']},
+  strict:{title:typed('Strict reference','严格参考对齐'),type:typed('Alignment reference','对齐参考'),about:typed('Match kernels and reduction behavior with the sampler to localize residual execution differences.','匹配采样端的内核与归约行为，定位残余执行差异。'),data:typed('Kernel choice, reduction order, normalization and nonlinear composition can affect the comparison.','内核选择、归约顺序、归一化与非线性组合都会影响比较。'),implementation:typed('Deterministic alignment is a coordinated execution setup described in the report. A recipe name alone does not establish alignment.','确定性对齐是报告中描述的联合执行设置，单个配方名称并不代表已经完成对齐。'),source:'deterministic',related:['diag-codes','diag-experts','diag-logp','spec']},
   spec:{title:typed('Shared numerical specification','共同数值规范'),type:typed('Comparison contract','比较条件'),about:typed('Make the numerical identity of a run explicit before comparing its outputs or performance.','比较输出或性能前，先明确一次运行的数值身份。'),data:typed('Weight version · scale domains · rounding · layout · composition.','权重版本 · 缩放归约域 · 舍入 · 布局 · 算子组合。'),implementation:typed('An explicit qlinear_params selects the recipe before environment selectors. Layer-number exclusions precede layer-name overrides. Record the effective recipe and execution settings for comparisons.','显式 qlinear_params 优先于环境变量选择配方；按层编号关闭量化优先于层名覆盖。比较时记录实际配方与执行设置。'),source:'recipe',related:['diag-codes','diag-experts','diag-logp','quantization','backward']},
   router:{title:typed('Router','路由器'),type:typed('MoE execution','MoE 执行'),about:typed('Choose expert assignments for each token.','为每个 token 选择专家。'),data:typed('Expert IDs and routing weights affect downstream token organization.','专家 ID 与路由权重影响后续 token 组织。'),implementation:typed('The model/Megatron integration supplies routing and dispatch around the expert linear layers.','模型与 Megatron 在专家线性层周围提供路由和 dispatch。'),source:'launcher',related:['dispatch','fc1']},
   dispatch:{title:typed('Dispatch / permute','Dispatch / permute'),type:typed('MoE execution','MoE 执行'),about:typed('Arrange tokens into expert groups before FC1.','在 FC1 前将 token 组织为专家分组。'),data:typed('X [ΣMₑ,K] and m_splits must refer to the same grouped token order.','X [ΣMₑ,K] 与 m_splits 必须对应同一分组顺序。'),implementation:typed('Producer-side row_amax can be passed into the quantization stage for FC1.','上游生成的 row_amax 可传给 FC1 的量化阶段。'),source:'launcher',related:['router','inputs','amax','fc1']},
@@ -3044,7 +3056,7 @@ function draw(){
   s+=node(id,x,352,w,196,'#ffffffb3','#ddddea',content);
  });
  s+=T(295,574,L('Aligned token order · expert identity','token 顺序与专家身份对齐'),'small','middle');
- s+=node('strict',47,593,410,139,'#EDEBF3','#B6B4C8',T(65,621,L('Strict reference','严格参考路径'),'section-title')+T(67,657,L('Matched kernels','匹配内核'),'secondary')+T(67,681,L('& reductions','与归约行为'),'secondary')+`<path d="M232 666H271" class="edge"/>`+T(292,657,L('Diagnosis','诊断'),'secondary')+T(292,681,L('& regression','与回归检查'),'secondary'));
+ s+=node('strict',47,593,410,139,'#EDEBF3','#B6B4C8',T(65,621,L('Strict reference','严格参考对齐'),'section-title')+T(67,657,L('Matched kernels','匹配内核'),'secondary')+T(67,681,L('& reductions','与归约行为'),'secondary')+`<path d="M232 666H271" class="edge"/>`+T(292,657,L('Diagnosis','诊断'),'secondary')+T(292,681,L('& regression','与回归检查'),'secondary'));
  s+=rect(490,213,936,536,'#FAFFFC','#69A876',12)+T(511,246,L('(b) Expert GroupedLinear path','(b) 专家 GroupedLinear 路径'),'panel-title')+T(510,279,L('Forward · NVFP4 (W4A4)','前向 · NVFP4（W4A4）'),'section-title')+T(1390,278,L('Dense packaging illustrated','图示为 dense 包装'),'small','end');
  s+=node('amax',624,301,195,54,'#E4F6DE',c.greenEdge,T(721,334,L('Amax reuse','Amax 复用'),'label','middle'));
  s+=node('buffers',837,301,247,54,'#E4F6DE',c.greenEdge,T(960,334,L('Contiguous buffers','连续 Buffer'),'label','middle'));

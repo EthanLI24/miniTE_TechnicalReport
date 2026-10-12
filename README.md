@@ -4,8 +4,8 @@ miniTE 技术报告：原生 NVFP4 强化学习的稳定训练与高效实现。
 
 ## 阅读报告
 
-- [中文报告](public/index.html)
-- [English report](public/miniTE_tech_report_en.html)
+- [English report (default)](public/index.html)
+- [中文报告](public/miniTE_tech_report_zh.html)
 
 下载仓库后，用浏览器打开 `public/index.html`，或在仓库目录启动本地预览：
 
