@@ -6,6 +6,7 @@ miniTE 技术报告：原生 NVFP4 强化学习的稳定训练与高效实现。
 
 - [English report (default)](public/index.html)
 - [中文报告](public/miniTE_tech_report_zh.html)
+- Markdown：[English](public/miniTE_tech_report_en.md) · [中文](public/miniTE_tech_report_zh.md)
 
 下载仓库后，用浏览器打开 `public/index.html`，或在仓库目录启动本地预览：
 
@@ -19,7 +20,7 @@ python3 -m http.server 8000 --directory public
 
 `public/` 是完整的网站发布目录。报告正文、图片、交互图表代码和图表数据已经内嵌在 HTML 中；数学公式使用 MathJax 3.2.2 CDN，需要联网渲染。
 
-此仓库发布报告网页。原始 Notion 导出、实验执行草稿和未发布论文源文件保留在研究工作区，原附件引用在网页中保留为文字。正文中的实验表格、图表数据和公开文献链接完整保留。
+仓库同时提供中英文 HTML 和 Markdown。HTML 支持交互阅读；Markdown 使用 `public/assets/` 中的静态图，并链接到对应交互图。正文中的实验表格、图表数据和公开文献链接完整保留。
 
 ## Cloudflare 部署
 

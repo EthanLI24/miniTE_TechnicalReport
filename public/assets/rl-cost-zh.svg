@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 452" role="img" aria-label="计算收益与转换同步成本"><style>text{font-family:Inter,Arial,'PingFang SC','Microsoft YaHei',sans-serif;fill:#35513e} [data-tip]{cursor:default}</style><rect width="760" height="452" fill="white"/><text x="25" y="28" font-size="17" font-weight="600">计算收益与转换同步成本</text><g transform="translate(0 44)"><rect width="760" height="274" fill="white"></rect><text x="193" y="21" fill="#35513e" font-size="13">实测阶段耗时 / s（不含采样）</text><line x1="193" y1="40" x2="193" y2="223" stroke="#dbe4dc"></line><text x="193" y="247" fill="#35513e" text-anchor="middle" font-size="12">0.0</text><line x1="314.75" y1="40" x2="314.75" y2="223" stroke="#dbe4dc"></line><text x="314.75" y="247" fill="#35513e" text-anchor="middle" font-size="12">27.5</text><line x1="436.5" y1="40" x2="436.5" y2="223" stroke="#dbe4dc"></line><text x="436.5" y="247" fill="#35513e" text-anchor="middle" font-size="12">55.0</text><line x1="558.25" y1="40" x2="558.25" y2="223" stroke="#dbe4dc"></line><text x="558.25" y="247" fill="#35513e" text-anchor="middle" font-size="12">82.5</text><line x1="680" y1="40" x2="680" y2="223" stroke="#dbe4dc"></line><text x="680" y="247" fill="#35513e" text-anchor="middle" font-size="12">110.0</text><text x="181" y="74" fill="#35513e" text-anchor="end" font-size="12">BF16</text><rect x="193" y="52" width="208.2589090909091" height="34" rx="4" fill="#309576" opacity=".86" data-tip="BF16
+Train: 47.04 s
+n=11" tabindex="0" role="img" aria-label="BF16
+Train: 47.04 s
+n=11"><title>BF16
+Train: 47.04 s
+n=11</title></rect><rect x="401.2589090909091" y="52" width="44.007090909090905" height="34" rx="4" fill="#d18a35" opacity=".86" data-tip="BF16
+转换 / 同步: 9.94 s
+n=11" tabindex="0" role="img" aria-label="BF16
+转换 / 同步: 9.94 s
+n=11"><title>BF16
+转换 / 同步: 9.94 s
+n=11</title></rect><text x="741" y="74" fill="#35513e" text-anchor="end" font-size="12">56.98 s</text><text x="181" y="140" fill="#35513e" text-anchor="end" font-size="12">TE NVFP4</text><rect x="193" y="118" width="197.89909090909092" height="34" rx="4" fill="#309576" opacity=".86" data-tip="TE NVFP4
+Train: 44.7 s
+n=10" tabindex="0" role="img" aria-label="TE NVFP4
+Train: 44.7 s
+n=10"><title>TE NVFP4
+Train: 44.7 s
+n=10</title></rect><rect x="390.8990909090909" y="118" width="225.2596363636364" height="34" rx="4" fill="#d18a35" opacity=".86" data-tip="TE NVFP4
+转换 / 同步: 50.88 s
+n=10" tabindex="0" role="img" aria-label="TE NVFP4
+转换 / 同步: 50.88 s
+n=10"><title>TE NVFP4
+转换 / 同步: 50.88 s
+n=10</title></rect><text x="741" y="140" fill="#35513e" text-anchor="end" font-size="12">95.58 s</text><text x="181" y="198" fill="#35513e" text-anchor="end" font-size="12">miniTE per-token</text><text x="181" y="214" fill="#35513e" text-anchor="end" font-size="11">BF16 bwd</text><rect x="193" y="184" width="188.4247272727273" height="34" rx="4" fill="#309576" opacity=".86" data-tip="miniTE per-token / BF16 bwd
+Train: 42.56 s
+n=10" tabindex="0" role="img" aria-label="miniTE per-token / BF16 bwd
+Train: 42.56 s
+n=10"><title>miniTE per-token / BF16 bwd
+Train: 42.56 s
+n=10</title></rect><rect x="381.4247272727273" y="184" width="244.6510909090909" height="34" rx="4" fill="#d18a35" opacity=".86" data-tip="miniTE per-token / BF16 bwd
+转换 / 同步: 55.26 s
+n=10" tabindex="0" role="img" aria-label="miniTE per-token / BF16 bwd
+转换 / 同步: 55.26 s
+n=10"><title>miniTE per-token / BF16 bwd
+转换 / 同步: 55.26 s
+n=10</title></rect><text x="741" y="206" fill="#35513e" text-anchor="end" font-size="12">97.82 s</text></g><text x="25" y="342" font-size="11">Train / 转换 / 同步 · 条件估算：miniTE per-token / BF16 bwd 的已测两阶段比 BF</text><text x="25" y="362" font-size="11">16 多 40.84 s。若采样节省 0.0 s，则顺序流程净增加 40.84 s。滑块只改变条件估算，不改变图中实测值。</text><text x="25" y="382" font-size="11"> · 堆叠条使用表 6-19 的实测阶段均值，BF16 为 11 个稳态步、TE NVFP4/miniTE per-tok</text><text x="25" y="402" font-size="11">en 为 10 步。采样时间未纳入该图。滑块仅计算：在无重叠、其他开销相同的条件下，采样需节省多少时间才覆盖已记录的两阶段</text><text x="25" y="422" font-size="11">额外成本；它不是完整 RL 速度预测。打印版只展示实测阶段。</text></svg>
