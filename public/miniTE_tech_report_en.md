@@ -19,7 +19,7 @@ Reinforcement learning for large language models repeatedly performs rollouts, p
 
 Our early NVFP4 runs improved reward initially but later developed abnormal entropy, growing training–sampling log-probability gaps, and declining reward. Quantization error, checkpoint conversion, activation scaling, KV-cache precision, and operator execution on both sides affected the outcome. Replacing a single quantization operator, or confirming that both sides used NVFP4, did not resolve all of these issues.
 
-We first describe the failures, then use controlled experiments to identify and locate their causes. This leads to two complementary approaches. TRIAGE changes the update rule to control the effect of residual mismatch on learning. miniTE acts on numerical execution, reducing avoidable differences while turning low-precision computation into practical efficiency gains.
+We first describe the failures, then use controlled experiments to identify and locate their causes. This leads to complementary algorithmic and engineering tracks. TRIAGE changes the update rule to control the effect of residual mismatch on learning. miniTE acts on numerical execution, reducing avoidable differences while turning low-precision computation into practical efficiency gains.
 
 In a large training framework, changing scale granularity or a GEMM backend can require changes to layer wrappers, grouped layouts, communication, and autograd. miniTE separates quantization policy from these shared functions, allowing developers to replace a compute path within an existing training workflow and then evaluate its numerical correctness, learning behavior, and runtime cost.
 
@@ -298,9 +298,9 @@ At the shared 4B step-300 checkpoint, TRIAGE scores 53.03%, exceeding native NVF
 
 <a id="section-16"></a>
 
-### 3.3 Two Complementary Approaches
+### 3.3 Complementary Algorithm and Engineering Tracks
 
-TRIAGE and miniTE intervene at different points in the problems identified above. TRIAGE changes updates when residual mismatch remains. miniTE directly examines and improves quantization, operators, and their invocation while reducing execution cost. The following sections introduce miniTE’s approach to numerical alignment and efficient computation. We evaluate the two approaches separately; additional gains from combining them remain to be tested.
+TRIAGE and miniTE intervene at different points in the problems identified above. TRIAGE changes updates when residual mismatch remains. miniTE directly examines and improves quantization, operators, and their invocation while reducing execution cost. The following sections introduce miniTE’s approach to numerical alignment and efficient computation. We evaluate the two tracks separately; additional gains from combining them remain to be tested.
 
 <a id="section-17"></a>
 
@@ -1255,7 +1255,7 @@ The repository README covers setup, layer integration, and launch examples; the 
 
 ## 8. Discussion: From Numerical Alignment to End-to-End Learning
 
-The experiments address low-precision RL through two approaches: TRIAGE changes updates in the presence of mismatch, while miniTE reduces execution differences and compute cost. Neither resolves every issue. The next questions are whether faster computation yields end-to-end savings, and whether closer numerical agreement produces better learning.
+The experiments address low-precision RL through two tracks: TRIAGE changes updates in the presence of mismatch, while miniTE reduces execution differences and compute cost. Neither resolves every issue. The next questions are whether faster computation yields end-to-end savings, and whether closer numerical agreement produces better learning.
 
 <a id="section-47"></a>
 
