@@ -1,7 +1,7 @@
 ## TL;DR
 
 - **Problem and diagnosis ·** Native NVFP4 RL can become unstable late in training. We examine quantization, activation scaling, KV caches, and execution paths, then study how their errors affect updates.
-- **Two approaches ·** TRIAGE controls residual mismatch risk through update direction. miniTE reduces numerical execution differences and optimizes low-precision computation. We evaluate them separately.
+- **Algorithm & engineering ·** TRIAGE controls residual mismatch risk through update direction. miniTE reduces numerical execution differences and optimizes low-precision computation. We evaluate them separately.
 - **Measured gains ·** On 8×B300, miniTE with BF16 backward achieves approximately 1.33–1.37× BF16 speed for complete learner updates. A separate fixed-output serving test reaches approximately 1.64× throughput.
 - **Open questions ·** Weight conversion and synchronization limit end-to-end gains. Matching operators and obtaining a small gap do not guarantee BF16-level learning; error tolerance, update rules, and final outcomes need further study.
 
